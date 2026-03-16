@@ -1,0 +1,11 @@
+#ifndef CCTYPE
+#define CCTYPE 1
+
+bool isspace(char c);
+bool isdigit(char c);
+bool isalpha(char c);
+bool isalnum(char c);
+char toupper(char c);
+char tolower(char c);
+
+#endif

@@ -1,0 +1,10 @@
+#ifndef CSTDIO
+#define CSTDIO 1
+
+#include <extra/printf/printf.h>
+
+void __cstdio_initialise_terminal();
+
+extern "C" void putchar(char c);
+
+#endif
