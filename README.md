@@ -14,8 +14,7 @@
 - [x] Prepare a virtual memory manager
 - [x] Write an allocator, probably port liballoc
 - [x] Write a GDT
-- [ ] Write a TSS
-- [ ] Write an IDT
+- [x] Write an IDT
 - [ ] Write an IRQ manager
 - [ ] Port or write an ACPI kernel driver
 - [ ] APIC to replace the PIC
