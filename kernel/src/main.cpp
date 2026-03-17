@@ -5,6 +5,7 @@
 #include <mm/vmm.hpp>
 
 #include <arch/x86_64/gdt/gdt.hpp>
+#include <arch/x86_64/idt/idt.hpp>
 
 void initialised(const char* component) {
 	printf("[ OK ] %s Initialised\r\n", component);
@@ -28,6 +29,9 @@ int main(int argc, char** argv) {
 	arch::x86_64::gdt::update_stack();
 	arch::x86_64::gdt::set_ist(1, ist1_top);
 	initialised("GDT");
+
+	arch::x86_64::idt::initialise();
+	initialised("IDT");
 
 	return 0;
 }
