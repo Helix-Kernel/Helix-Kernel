@@ -15,7 +15,7 @@
 - [x] Write an allocator, probably port liballoc
 - [x] Write a GDT
 - [x] Write an IDT
-- [ ] Write an IRQ manager
+- [x] Write an IRQ manager
 - [ ] Port or write an ACPI kernel driver
 - [ ] APIC to replace the PIC
 - [ ] HPET timer
