@@ -10,10 +10,10 @@
 - [ ] **Finale**
 
 ### x86_64 Specific
-- [ ] Prepare a physical memory manager
-- [ ] Prepare a virtual memory manager
-- [ ] Write an allocator, probably port liballoc
-- [ ] Write a GDT
+- [x] Prepare a physical memory manager
+- [x] Prepare a virtual memory manager
+- [x] Write an allocator, probably port liballoc
+- [x] Write a GDT
 - [ ] Write a TSS
 - [ ] Write an IDT
 - [ ] Write an IRQ manager
