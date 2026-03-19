@@ -3,9 +3,10 @@
 
 #include <mm/pmm.hpp>
 #include <mm/vmm.hpp>
-
 #include <arch/x86_64/gdt/gdt.hpp>
 #include <arch/x86_64/idt/idt.hpp>
+#include <uacpi/uacpi.h>
+#include <resources/io.hpp>
 
 void initialised(const char* component) {
 	printf("[ OK ] %s Initialised\r\n", component);
@@ -32,6 +33,15 @@ int main(int argc, char** argv) {
 
 	arch::x86_64::idt::initialise();
 	initialised("IDT");
+
+	uacpi_initialize(
+		UACPI_FLAG_BAD_CSUM_FATAL |
+		UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL
+	);
+	initialised("uACPI");
+
+	printf("Dumping IO mappings after ACPI initialisation\r\n");
+	print_io_mappings();
 
 	return 0;
 }

@@ -86,24 +86,29 @@ void* mm::vmm::mmap(void* paddr, void* vaddr, size_t n, uint64_t flags) {
     return vaddr;
 }
 
-void mm::vmm::munmap(void* vaddr) {
+void mm::vmm::munmap(void* vaddr, size_t n) {
     uint64_t va = (uint64_t)vaddr;
-    uint64_t* pml4 = (uint64_t*)pa_to_va((void*)current_cr3);
+    uint64_t end = va + n;
 
-    uint64_t* pml4e = &pml4[PML4_IDX(va)];
-    if (!(*pml4e & PAGE_PRESENT)) return;
-    uint64_t* pdpt = (uint64_t*)pa_to_va((void*)(*pml4e & PAGE_ADDR_MASK));
+    while (va < end) {
+        uint64_t* pml4 = (uint64_t*)pa_to_va((void*)current_cr3);
+        uint64_t* pml4e = &pml4[PML4_IDX(va)];
+        if (!(*pml4e & PAGE_PRESENT)) { va += PAGE_SIZE; continue; }
 
-    uint64_t* pdpte = &pdpt[PDPT_IDX(va)];
-    if (!(*pdpte & PAGE_PRESENT)) return;
-    uint64_t* pd = (uint64_t*)pa_to_va((void*)(*pdpte & PAGE_ADDR_MASK));
+        uint64_t* pdpt = (uint64_t*)pa_to_va((void*)(*pml4e & PAGE_ADDR_MASK));
+        uint64_t* pdpte = &pdpt[PDPT_IDX(va)];
+        if (!(*pdpte & PAGE_PRESENT)) { va += PAGE_SIZE; continue; }
 
-    uint64_t* pde = &pd[PD_IDX(va)];
-    if (!(*pde & PAGE_PRESENT)) return;
-    uint64_t* pt = (uint64_t*)pa_to_va((void*)(*pde & PAGE_ADDR_MASK));
+        uint64_t* pd = (uint64_t*)pa_to_va((void*)(*pdpte & PAGE_ADDR_MASK));
+        uint64_t* pde = &pd[PD_IDX(va)];
+        if (!(*pde & PAGE_PRESENT)) { va += PAGE_SIZE; continue; }
 
-    pt[PT_IDX(va)] = 0;
-    invlpg(vaddr);
+        uint64_t* pt = (uint64_t*)pa_to_va((void*)(*pde & PAGE_ADDR_MASK));
+        pt[PT_IDX(va)] = 0;
+        invlpg((void*)va);
+
+        va += PAGE_SIZE;
+    }
 }
 
 int mm::vmm::copy_to_user(void* data, void* user_memory, size_t n) {

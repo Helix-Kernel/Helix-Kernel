@@ -1,5 +1,6 @@
 #include "cstring"
 #include <cctype>
+#include <cstdlib>
 
 extern "C" {
 
@@ -279,6 +280,22 @@ char* strrchr(const char* s, int c) {
 		s++;
 	}
 	return (char*)last;
+}
+
+char* strdup(const char* s) {
+    size_t szs = strlen(s);
+    char* new_str = (char*)malloc(szs + 1);
+    memcpy((void*)new_str, (void*)s, szs);
+    new_str[szs] = '\0';
+    return new_str;
+}
+
+char* strndup(const char* s, unsigned int n) {
+	size_t szs = strlen(s);
+	if (szs > n) szs = n;
+	char* new_str = (char*)malloc(szs);
+	memcpy((void*)new_str, (void*)s, szs);
+	return new_str;
 }
 
 }

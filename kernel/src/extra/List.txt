@@ -1,4 +1,5 @@
 List of repos here:
-- uacpi/uacpi
 - mintsuki/flanterm
 - mpaland/printf
+- blanham/liballoc
+- uacpi/uacpi

@@ -27,7 +27,7 @@ void* alloc(size_t n);
 void free(void* p, size_t n);
 
 void* mmap(void* paddr, void* vaddr, size_t n, uint64_t flags);
-void munmap(void* vaddr);
+void munmap(void* vaddr, size_t n);
 
 int copy_to_user(void* data, void* user_memory, size_t n);
 int copy_from_user(void* data, void* kernel_memory, size_t n);

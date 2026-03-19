@@ -16,7 +16,7 @@
 - [x] Write a GDT
 - [x] Write an IDT
 - [x] Write an IRQ manager
-- [ ] Port or write an ACPI kernel driver
+- [x] Port or write an ACPI kernel driver
 - [ ] APIC to replace the PIC
 - [ ] HPET timer
 - [ ] APIC timer
