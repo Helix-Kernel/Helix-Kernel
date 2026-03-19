@@ -1,0 +1,470 @@
+#ifndef VECTOR_HPP
+#define VECTOR_HPP 1
+
+#include <cstddef>
+#include <cstring>
+#include <initializer_list>
+
+inline void* operator new(size_t, void* p) noexcept { return p; }
+inline void operator delete(void*, void*) noexcept {}
+
+namespace detail {
+
+template<typename T> struct remove_reference { using type = T; };
+template<typename T> struct remove_reference<T&> { using type = T; };
+template<typename T> struct remove_reference<T&&> { using type = T; };
+
+template<typename T>
+constexpr typename remove_reference<T>::type&& move(T&& t) noexcept {
+    return static_cast<typename remove_reference<T>::type&&>(t);
+}
+
+template<typename T>
+constexpr T&& forward(typename remove_reference<T>::type& t) noexcept {
+    return static_cast<T&&>(t);
+}
+
+template<typename T>
+constexpr T&& forward(typename remove_reference<T>::type&& t) noexcept {
+    return static_cast<T&&>(t);
+}
+
+template<typename T>
+void swap(T& a, T& b) noexcept {
+    T tmp = move(a);
+    a = move(b);
+    b = move(tmp);
+}
+
+}
+
+template<typename T>
+struct reverse_iterator {
+    using value_type = T;
+    using difference_type = ptrdiff_t;
+    using pointer = T*;
+    using reference = T&;
+
+    explicit reverse_iterator(T* p) : ptr(p) {}
+
+    T& operator*() const { return *(ptr - 1); }
+    T* operator->() const { return ptr - 1; }
+
+    reverse_iterator& operator++() { --ptr; return *this; }
+    reverse_iterator operator++(int) { reverse_iterator tmp = *this; --ptr; return tmp; }
+    reverse_iterator& operator--() { ++ptr; return *this; }
+    reverse_iterator operator--(int) { reverse_iterator tmp = *this; ++ptr; return tmp; }
+
+    reverse_iterator operator+(ptrdiff_t n) const { return reverse_iterator(ptr - n); }
+    reverse_iterator operator-(ptrdiff_t n) const { return reverse_iterator(ptr + n); }
+    ptrdiff_t operator-(const reverse_iterator& o) const { return o.ptr - ptr; }
+
+    bool operator==(const reverse_iterator& o) const { return ptr == o.ptr; }
+    bool operator!=(const reverse_iterator& o) const { return ptr != o.ptr; }
+    bool operator<(const reverse_iterator& o) const { return ptr > o.ptr; }
+    bool operator<=(const reverse_iterator& o) const { return ptr >= o.ptr; }
+    bool operator>(const reverse_iterator& o) const { return ptr < o.ptr; }
+    bool operator>=(const reverse_iterator& o) const { return ptr <= o.ptr; }
+
+    T* ptr;
+};
+
+template<typename T>
+struct const_reverse_iterator {
+    using value_type = T;
+    using difference_type = ptrdiff_t;
+    using pointer = const T*;
+    using reference = const T&;
+
+    explicit const_reverse_iterator(const T* p) : ptr(p) {}
+
+    const T& operator*() const { return *(ptr - 1); }
+    const T* operator->() const { return ptr - 1; }
+
+    const_reverse_iterator& operator++() { --ptr; return *this; }
+    const_reverse_iterator operator++(int) { const_reverse_iterator tmp = *this; --ptr; return tmp; }
+    const_reverse_iterator& operator--() { ++ptr; return *this; }
+    const_reverse_iterator operator--(int) { const_reverse_iterator tmp = *this; ++ptr; return tmp; }
+
+    const_reverse_iterator operator+(ptrdiff_t n) const { return const_reverse_iterator(ptr - n); }
+    const_reverse_iterator operator-(ptrdiff_t n) const { return const_reverse_iterator(ptr + n); }
+    ptrdiff_t operator-(const const_reverse_iterator& o) const { return o.ptr - ptr; }
+
+    bool operator==(const const_reverse_iterator& o) const { return ptr == o.ptr; }
+    bool operator!=(const const_reverse_iterator& o) const { return ptr != o.ptr; }
+    bool operator<(const const_reverse_iterator& o) const { return ptr > o.ptr; }
+    bool operator<=(const const_reverse_iterator& o) const { return ptr >= o.ptr; }
+    bool operator>(const const_reverse_iterator& o) const { return ptr < o.ptr; }
+    bool operator>=(const const_reverse_iterator& o) const { return ptr <= o.ptr; }
+
+    const T* ptr;
+};
+
+template<typename T>
+class vector {
+public:
+    using value_type = T;
+    using size_type = size_t;
+    using difference_type = ptrdiff_t;
+    using reference = T&;
+    using const_reference = const T&;
+    using pointer = T*;
+    using const_pointer = const T*;
+    using iterator = T*;
+    using const_iterator = const T*;
+    using reverse_iterator = ::reverse_iterator<T>;
+    using const_reverse_iterator = ::const_reverse_iterator<T>;
+
+private:
+    T* data_;
+    size_t size_;
+    size_t capacity_;
+
+    void grow(size_t min_cap) {
+        size_t new_cap = capacity_ ? capacity_ * 2 : 4;
+        if (new_cap < min_cap) new_cap = min_cap;
+        T* new_data = (T*)malloc(sizeof(T) * new_cap);
+        if (data_) {
+            memmove(new_data, data_, sizeof(T) * size_);
+            free(data_);
+        }
+        data_ = new_data;
+        capacity_ = new_cap;
+    }
+
+    void destroy_range(T* first, T* last) {
+        for (; first != last; ++first)
+            first->~T();
+    }
+
+    void shift_right(size_t pos, size_t count) {
+        if (size_ + count > capacity_)
+            grow(size_ + count);
+        memmove(data_ + pos + count, data_ + pos, sizeof(T) * (size_ - pos));
+    }
+
+    void shift_left(size_t pos, size_t count) {
+        memmove(data_ + pos, data_ + pos + count, sizeof(T) * (size_ - pos - count));
+    }
+
+public:
+    vector() noexcept : data_(nullptr), size_(0), capacity_(0) {}
+
+    explicit vector(size_t count) : data_(nullptr), size_(0), capacity_(0) {
+        resize(count);
+    }
+
+    vector(size_t count, const T& value) : data_(nullptr), size_(0), capacity_(0) {
+        resize(count, value);
+    }
+
+    vector(const vector& other) : data_(nullptr), size_(0), capacity_(0) {
+        reserve(other.size_);
+        for (size_t i = 0; i < other.size_; ++i)
+            new (data_ + i) T(other.data_[i]);
+        size_ = other.size_;
+    }
+
+    vector(vector&& other) noexcept : data_(other.data_), size_(other.size_), capacity_(other.capacity_) {
+        other.data_ = nullptr;
+        other.size_ = 0;
+        other.capacity_ = 0;
+    }
+
+    vector(std::initializer_list<T> il) : data_(nullptr), size_(0), capacity_(0) {
+        reserve(il.size());
+        for (const T& v : il)
+            push_back(v);
+    }
+
+    template<typename InputIt>
+    vector(InputIt first, InputIt last) : data_(nullptr), size_(0), capacity_(0) {
+        for (; first != last; ++first)
+            push_back(*first);
+    }
+
+    ~vector() {
+        destroy_range(data_, data_ + size_);
+        if (data_) free(data_);
+        data_ = nullptr;
+        size_ = 0;
+        capacity_ = 0;
+    }
+
+    vector& operator=(const vector& other) {
+        if (this != &other) {
+            destroy_range(data_, data_ + size_);
+            size_ = 0;
+            reserve(other.size_);
+            for (size_t i = 0; i < other.size_; ++i)
+                new (data_ + i) T(other.data_[i]);
+            size_ = other.size_;
+        }
+        return *this;
+    }
+
+    vector& operator=(vector&& other) noexcept {
+        if (this != &other) {
+            destroy_range(data_, data_ + size_);
+            if (data_) free(data_);
+            data_ = other.data_;
+            size_ = other.size_;
+            capacity_ = other.capacity_;
+            other.data_ = nullptr;
+            other.size_ = 0;
+            other.capacity_ = 0;
+        }
+        return *this;
+    }
+
+    vector& operator=(std::initializer_list<T> il) {
+        assign(il);
+        return *this;
+    }
+
+    void assign(size_t count, const T& value) {
+        destroy_range(data_, data_ + size_);
+        size_ = 0;
+        resize(count, value);
+    }
+
+    template<typename InputIt>
+    void assign(InputIt first, InputIt last) {
+        destroy_range(data_, data_ + size_);
+        size_ = 0;
+        for (; first != last; ++first)
+            push_back(*first);
+    }
+
+    void assign(std::initializer_list<T> il) {
+        assign(il.begin(), il.end());
+    }
+
+    reference at(size_t index) {
+        if (index >= size_) while (1);
+        return data_[index];
+    }
+
+    const_reference at(size_t index) const {
+        if (index >= size_) while (1);
+        return data_[index];
+    }
+
+    reference operator[](size_t i) { return data_[i]; }
+    const_reference operator[](size_t i) const { return data_[i]; }
+
+    reference front() { return data_[0]; }
+    const_reference front() const { return data_[0]; }
+
+    reference back() { return data_[size_ - 1]; }
+    const_reference back() const { return data_[size_ - 1]; }
+
+    T* data() noexcept { return data_; }
+    const T* data() const noexcept { return data_; }
+
+    iterator begin() noexcept { return data_; }
+    const_iterator begin() const noexcept { return data_; }
+    const_iterator cbegin() const noexcept { return data_; }
+
+    iterator end() noexcept { return data_ + size_; }
+    const_iterator end() const noexcept { return data_ + size_; }
+    const_iterator cend() const noexcept { return data_ + size_; }
+
+    reverse_iterator rbegin() noexcept { return reverse_iterator(data_ + size_); }
+    const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(data_ + size_); }
+    const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(data_ + size_); }
+
+    reverse_iterator rend() noexcept { return reverse_iterator(data_); }
+    const_reverse_iterator rend() const noexcept { return const_reverse_iterator(data_); }
+    const_reverse_iterator crend() const noexcept { return const_reverse_iterator(data_); }
+
+    bool empty() const noexcept { return size_ == 0; }
+    size_t size() const noexcept { return size_; }
+    size_t max_size() const noexcept { return (size_t)-1 / sizeof(T); }
+    size_t capacity() const noexcept { return capacity_; }
+
+    void reserve(size_t new_cap) {
+        if (new_cap > capacity_)
+            grow(new_cap);
+    }
+
+    void shrink_to_fit() {
+        if (capacity_ <= size_) return;
+        if (size_ == 0) {
+            free(data_);
+            data_ = nullptr;
+            capacity_ = 0;
+        } else {
+            T* new_data = (T*)malloc(sizeof(T) * size_);
+            memmove(new_data, data_, sizeof(T) * size_);
+            free(data_);
+            data_ = new_data;
+            capacity_ = size_;
+        }
+    }
+
+    void clear() noexcept {
+        destroy_range(data_, data_ + size_);
+        size_ = 0;
+    }
+
+    iterator insert(const_iterator pos, const T& value) {
+        size_t idx = (size_t)(pos - data_);
+        shift_right(idx, 1);
+        new (data_ + idx) T(value);
+        ++size_;
+        return data_ + idx;
+    }
+
+    iterator insert(const_iterator pos, T&& value) {
+        size_t idx = (size_t)(pos - data_);
+        shift_right(idx, 1);
+        new (data_ + idx) T(detail::move(value));
+        ++size_;
+        return data_ + idx;
+    }
+
+    iterator insert(const_iterator pos, size_t count, const T& value) {
+        size_t idx = (size_t)(pos - data_);
+        if (count == 0) return data_ + idx;
+        shift_right(idx, count);
+        for (size_t i = 0; i < count; ++i)
+            new (data_ + idx + i) T(value);
+        size_ += count;
+        return data_ + idx;
+    }
+
+    template<typename InputIt>
+    iterator insert(const_iterator pos, InputIt first, InputIt last) {
+        size_t idx = (size_t)(pos - data_);
+        size_t count = 0;
+        for (InputIt it = first; it != last; ++it) ++count;
+        if (count == 0) return data_ + idx;
+        shift_right(idx, count);
+        size_t i = 0;
+        for (; first != last; ++first, ++i)
+            new (data_ + idx + i) T(*first);
+        size_ += count;
+        return data_ + idx;
+    }
+
+    iterator insert(const_iterator pos, std::initializer_list<T> il) {
+        return insert(pos, il.begin(), il.end());
+    }
+
+    template<typename... Args>
+    iterator emplace(const_iterator pos, Args&&... args) {
+        size_t idx = (size_t)(pos - data_);
+        shift_right(idx, 1);
+        new (data_ + idx) T(detail::forward<Args>(args)...);
+        ++size_;
+        return data_ + idx;
+    }
+
+    template<typename... Args>
+    reference emplace_back(Args&&... args) {
+        if (size_ >= capacity_) grow(size_ + 1);
+        new (data_ + size_) T(detail::forward<Args>(args)...);
+        return data_[size_++];
+    }
+
+    iterator erase(const_iterator pos) {
+        size_t idx = (size_t)(pos - data_);
+        data_[idx].~T();
+        shift_left(idx, 1);
+        --size_;
+        return data_ + idx;
+    }
+
+    iterator erase(const_iterator first, const_iterator last) {
+        size_t idx = (size_t)(first - data_);
+        size_t count = (size_t)(last - first);
+        if (count == 0) return data_ + idx;
+        destroy_range(data_ + idx, data_ + idx + count);
+        shift_left(idx, count);
+        size_ -= count;
+        return data_ + idx;
+    }
+
+    void push_back(const T& value) {
+        if (size_ >= capacity_) grow(size_ + 1);
+        new (data_ + size_) T(value);
+        ++size_;
+    }
+
+    void push_back(T&& value) {
+        if (size_ >= capacity_) grow(size_ + 1);
+        new (data_ + size_) T(detail::move(value));
+        ++size_;
+    }
+
+    void pop_back() {
+        if (size_ > 0)
+            data_[--size_].~T();
+    }
+
+    void resize(size_t count) {
+        if (count < size_) {
+            destroy_range(data_ + count, data_ + size_);
+            size_ = count;
+        } else if (count > size_) {
+            reserve(count);
+            for (size_t i = size_; i < count; ++i)
+                new (data_ + i) T();
+            size_ = count;
+        }
+    }
+
+    void resize(size_t count, const T& value) {
+        if (count < size_) {
+            destroy_range(data_ + count, data_ + size_);
+            size_ = count;
+        } else if (count > size_) {
+            reserve(count);
+            for (size_t i = size_; i < count; ++i)
+                new (data_ + i) T(value);
+            size_ = count;
+        }
+    }
+
+    void swap(vector& other) noexcept {
+        detail::swap(data_, other.data_);
+        detail::swap(size_, other.size_);
+        detail::swap(capacity_, other.capacity_);
+    }
+};
+
+template<typename T>
+bool operator==(const vector<T>& a, const vector<T>& b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i)
+        if (!(a[i] == b[i])) return false;
+    return true;
+}
+
+template<typename T>
+bool operator!=(const vector<T>& a, const vector<T>& b) { return !(a == b); }
+
+template<typename T>
+bool operator<(const vector<T>& a, const vector<T>& b) {
+    size_t n = a.size() < b.size() ? a.size() : b.size();
+    for (size_t i = 0; i < n; ++i) {
+        if (a[i] < b[i]) return true;
+        if (b[i] < a[i]) return false;
+    }
+    return a.size() < b.size();
+}
+
+template<typename T>
+bool operator<=(const vector<T>& a, const vector<T>& b) { return !(b < a); }
+
+template<typename T>
+bool operator>(const vector<T>& a, const vector<T>& b) { return b < a; }
+
+template<typename T>
+bool operator>=(const vector<T>& a, const vector<T>& b) { return !(a < b); }
+
+template<typename T>
+void swap(vector<T>& a, vector<T>& b) noexcept { a.swap(b); }
+
+#endif
